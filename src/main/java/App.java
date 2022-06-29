@@ -13,8 +13,96 @@ public class App {
     }
 
     public String bestCharge(List<String> inputs) {
-        //TODO: write code here
+        NumberFormat nf = NumberFormat.getNumberInstance();
+        nf.setMaximumFractionDigits(0);
+        StringBuilder result = new StringBuilder();
+        double total = 0;
+        HashMap<String, Integer> order = new HashMap();
+        result.append("============= Order details =============\n");
 
-        return null;
+        for (String input : inputs) {
+            String[] one = input.split(" ");
+            String oneId = one[0];
+            Integer oneCount = Integer.parseInt(one[2]);
+
+            Item item = null;
+            for (Item i : itemRepository.findAll()) {
+                if(i.getId().equals(oneId)) item = i;
+            }
+            order.put(oneId, oneCount);
+            result.append(item.getName()+ " x "+oneCount+" = "+nf.format(oneCount*get_item_price(oneId))+" yuan\n");
+
+        }
+
+        List<SalesPromotion> salesList = salesPromotionRepository.findAll();
+
+        boolean isPrintSalesPromotionHead = false;
+
+        for (int i = 0; i < salesList.size(); i++) {
+            if("50%_DISCOUNT_ON_SPECIFIED_ITEMS".equals(salesList.get(i).getType())){
+                boolean flag = false;
+                double discountTotal = 0;
+                ArrayList<String> discountName = new ArrayList<>();
+                for (String relatedItem : salesList.get(i).getRelatedItems()) {
+                    if(order.containsKey(relatedItem)){
+                        flag = true;
+                        // 不符合优惠政策
+                        double original  = order.get(relatedItem) * get_item_price(relatedItem);
+                        total += 0.5 * original;
+                        discountTotal+=0.5 * original;
+                        order.remove(relatedItem);
+                        discountName.add(get_item_name(relatedItem));
+                    }
+                }
+
+                if(flag){
+                    if(!isPrintSalesPromotionHead)result.append("-----------------------------------\nPromotion used:\n");
+                    result.append(salesList.get(i).getDisplayName()+" (");
+                    for (int i1 = 0; i1 < discountName.size(); i1++) {
+                        result.append(discountName.get(i1));
+                        if(i1!=discountName.size()-1) result.append(", ");
+                    }
+                    result.append("), saving "+nf.format(discountTotal)+ " yuan\n");
+                }
+            }
+        }
+
+        for (int i = 0; i < salesList.size(); i++) {
+            if("BUY_30_SAVE_6_YUAN".equals(salesList.get(i).getType())){
+                if(total>=30){
+                    total-=6;
+                    if(!isPrintSalesPromotionHead)result.append("-----------------------------------\nPromotion used:\n");
+                    result.append(salesList.get(i).getDisplayName()+", saving 6 yuan\n");
+                }
+            }
+        }
+
+        result.append("-----------------------------------\n");
+        Iterator<String> iter = order.keySet().iterator();
+        while (iter.hasNext()){
+            String k = iter.next();
+            total+=order.get(k)*get_item_price(k);
+        }
+
+        result.append("Total: "+nf.format(total)+" yuan\n");
+        result.append("===================================");
+        System.out.println(result.toString());
+        return result.toString();
+    }
+
+    public double get_item_price(String id){
+        List<Item> list = itemRepository.findAll();
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getId().equals(id))return list.get(i).getPrice();
+        }
+        return -1;
+    }
+
+    public String get_item_name(String id){
+        List<Item> list = itemRepository.findAll();
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).getId().equals(id))return list.get(i).getName();
+        }
+        return "";
     }
 }
